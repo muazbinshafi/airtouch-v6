@@ -546,6 +546,21 @@ export class BrowserCursor {
         (snap.pinchDistance > 0 && snap.pinchDistance < 0.55);
       const tool = PaintStore.get().tool;
       const isShape = PaintStore.isShape(tool);
+      const isFill = PaintStore.isFill(tool);
+
+      if (isFill) {
+        // Trigger flood-fill once on the rising edge of pinch / click.
+        const wasDrawing = this.lastGesture === "click" || this.lastGesture === "drag";
+        if (isDrawing && !wasDrawing) {
+          const snapImg = this.snapshotCanvas();
+          if (snapImg) PaintHistory.push(snapImg);
+          this.floodFill(x, y);
+        }
+        this.setLabel(isDrawing ? "FILL" : "FILL · CLICK TO POUR");
+        this.tryFireStaticGesture(g, snap.confidence, "draw");
+        this.lastGesture = g;
+        return;
+      }
 
       if (isShape) {
         if (isDrawing) {
