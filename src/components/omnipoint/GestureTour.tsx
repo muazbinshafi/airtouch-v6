@@ -92,6 +92,23 @@ const STEPS: Step[] = [
     dwellMs: 220,
   },
   {
+    emoji: "🤝",
+    title: "Three-finger pinch for right-click",
+    description:
+      "Touch your thumb to BOTH your index and middle fingertips at once. This fires a right-click (context menu).",
+    hint: "Keep ring + pinky folded so the detector reads it cleanly.",
+    Icon: Pointer,
+    practicePrompt: "Pinch thumb + index + middle together.",
+    match: (s) =>
+      s.handPresent &&
+      (s.gesture === "right_click" ||
+        (s.fingersExtended[1] === true &&
+          s.fingersExtended[2] === true &&
+          s.pinchDistance > 0 &&
+          s.pinchDistance < 0.06)),
+    dwellMs: 220,
+  },
+  {
     emoji: "✌️",
     title: "Two fingers to scroll",
     description:
