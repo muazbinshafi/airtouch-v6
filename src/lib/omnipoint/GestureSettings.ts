@@ -97,14 +97,14 @@ export const defaultSettings: GestureSettings = {
       enabled: true,
     },
     thumbs_up: {
-      pointerAction: "zoom_in",
+      pointerAction: "none",
       drawAction: "redo",
       holdMs: 200,
       cooldownMs: 350,
       enabled: true,
     },
     pinky_only: {
-      pointerAction: "zoom_out",
+      pointerAction: "none",
       drawAction: "clear",
       holdMs: 220,
       cooldownMs: 350,
