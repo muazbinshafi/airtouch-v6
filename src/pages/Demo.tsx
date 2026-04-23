@@ -72,6 +72,19 @@ const Demo = () => {
     setConfigState((prev) => {
       const next = { ...prev, ...patch };
       if (engineRef.current) engineRef.current.config = next;
+      // Mirror the calibration into the gesture-settings store so it rides
+      // along when the user clicks "Save profile" and is synced to the cloud.
+      GestureSettingsStore.patch({
+        engineConfig: {
+          sensitivity: next.sensitivity,
+          smoothingAlpha: next.smoothingAlpha,
+          clickThreshold: next.clickThreshold,
+          releaseThreshold: next.releaseThreshold,
+          scrollSensitivity: next.scrollSensitivity,
+          aspectRatio: next.aspectRatio,
+          deadZone: next.deadZone,
+        },
+      });
       return next;
     });
   }, []);
