@@ -415,6 +415,66 @@ export class BrowserCursor {
     this.resetCtx();
   }
 
+  /**
+   * Flood-fill (paint bucket) starting at canvas coords (x, y) with the
+   * current paint color. 4-connected scanline algorithm with a tolerance so
+   * anti-aliased pixels still fill cleanly.
+   */
+  private floodFill(x: number, y: number) {
+    if (!this.drawCtx) return;
+    const ctx = this.drawCtx;
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const px = Math.floor(x * dpr);
+    const py = Math.floor(y * dpr);
+    const w = this.drawCanvas.width;
+    const h = this.drawCanvas.height;
+    if (px < 0 || py < 0 || px >= w || py >= h) return;
+    const img = ctx.getImageData(0, 0, w, h);
+    const data = img.data;
+    const idx = (py * w + px) * 4;
+    const sr = data[idx], sg = data[idx + 1], sb = data[idx + 2], sa = data[idx + 3];
+
+    const { color } = PaintStore.get();
+    const c = color.replace("#", "");
+    const tr = parseInt(c.slice(0, 2), 16);
+    const tg = parseInt(c.slice(2, 4), 16);
+    const tb = parseInt(c.slice(4, 6), 16);
+    if (sr === tr && sg === tg && sb === tb && sa === 255) return;
+
+    const tol = 32;
+    const matches = (i: number) =>
+      Math.abs(data[i]     - sr) <= tol &&
+      Math.abs(data[i + 1] - sg) <= tol &&
+      Math.abs(data[i + 2] - sb) <= tol &&
+      Math.abs(data[i + 3] - sa) <= tol;
+
+    const stack: number[] = [px, py];
+    while (stack.length) {
+      const yy = stack.pop()!;
+      const xx = stack.pop()!;
+      let lx = xx;
+      while (lx >= 0 && matches((yy * w + lx) * 4)) lx--;
+      lx++;
+      let spanAbove = false, spanBelow = false;
+      for (let cx = lx; cx < w; cx++) {
+        const i = (yy * w + cx) * 4;
+        if (!matches(i)) break;
+        data[i] = tr; data[i + 1] = tg; data[i + 2] = tb; data[i + 3] = 255;
+        if (yy > 0) {
+          const above = matches(((yy - 1) * w + cx) * 4);
+          if (!spanAbove && above) { stack.push(cx, yy - 1); spanAbove = true; }
+          else if (spanAbove && !above) spanAbove = false;
+        }
+        if (yy < h - 1) {
+          const below = matches(((yy + 1) * w + cx) * 4);
+          if (!spanBelow && below) { stack.push(cx, yy + 1); spanBelow = true; }
+          else if (spanBelow && !below) spanBelow = false;
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   undo() {
     if (!this.drawCtx) return;
     const prev = PaintHistory.undo();
