@@ -14,6 +14,15 @@ import {
   type ConfigurableGesture,
 } from "./GestureSettings";
 
+// Module-level flag: when true, configurable static-pose actions
+// (open_palm→back, fist→stop, etc.) are SUPPRESSED. The GestureTour sets
+// this while it's open so practicing the gestures doesn't trigger
+// destructive shortcuts like browser-back or emergency-stop.
+let suppressStaticActions = false;
+export function setSuppressStaticGestureActions(v: boolean) {
+  suppressStaticActions = v;
+}
+
 export type CursorMode = "off" | "pointer" | "draw";
 
 interface DrawSegment {
@@ -576,6 +585,8 @@ export class BrowserCursor {
     const binding = settings.bindings[g];
     if (!binding.enabled) return false;
     if (confidence < settings.minConfidence) return false;
+    // Tour / learning mode: skip firing destructive shortcuts.
+    if (suppressStaticActions) return false;
 
     // Track sustained pose
     if (this.poseHeld !== g) {
