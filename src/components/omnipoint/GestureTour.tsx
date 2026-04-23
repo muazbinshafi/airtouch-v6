@@ -51,14 +51,15 @@ const STEPS: Step[] = [
     hint: "Try drawing a slow circle in the air.",
     Icon: MousePointer2,
     practicePrompt: "Raise just your index finger and move it around.",
-    // Index extended, others (mostly) folded.
+    // Index extended; allow thumb to be either way (thumb detection is noisy).
     match: (s) =>
       s.handPresent &&
+      s.gesture !== "open_palm" &&
       s.fingersExtended[1] === true &&
       s.fingersExtended[2] === false &&
       s.fingersExtended[3] === false &&
       s.fingersExtended[4] === false,
-    dwellMs: 500,
+    dwellMs: 350,
   },
   {
     emoji: "🤏",
@@ -72,8 +73,11 @@ const STEPS: Step[] = [
     // pinch distance is tight enough.
     match: (s) =>
       s.handPresent &&
-      (s.gesture === "click" || s.gesture === "drag" || s.pinchDistance < 0.045),
-    dwellMs: 120,
+      (s.gesture === "click" ||
+        s.gesture === "drag" ||
+        s.gesture === "right_click" ||
+        (s.pinchDistance > 0 && s.pinchDistance < 0.06)),
+    dwellMs: 100,
   },
   {
     emoji: "✊",
@@ -83,9 +87,16 @@ const STEPS: Step[] = [
     hint: "Great for selecting text or moving windows.",
     Icon: Grab,
     practicePrompt: "Close your hand into a fist and hold it briefly.",
+    // Accept any pose where all four non-thumb fingers are folded
+    // (thumb detection is unreliable, so we ignore it).
     match: (s) =>
-      s.handPresent && (s.gesture === "fist" || s.fingerCount === 0),
-    dwellMs: 500,
+      s.handPresent &&
+      (s.gesture === "fist" ||
+        (s.fingersExtended[1] === false &&
+          s.fingersExtended[2] === false &&
+          s.fingersExtended[3] === false &&
+          s.fingersExtended[4] === false)),
+    dwellMs: 350,
   },
   {
     emoji: "✋",
@@ -100,8 +111,8 @@ const STEPS: Step[] = [
       (s.gesture === "open_palm" ||
         s.gesture === "scroll_up" ||
         s.gesture === "scroll_down" ||
-        s.fingerCount >= 5),
-    dwellMs: 500,
+        s.fingerCount >= 4),
+    dwellMs: 400,
   },
   {
     emoji: "🤙",
@@ -110,9 +121,15 @@ const STEPS: Step[] = [
       "Lift three fingers together to trigger custom gesture shortcuts you can configure in Settings.",
     hint: "Map your favorite hotkeys for instant access.",
     Icon: Sparkles,
-    practicePrompt: "Raise exactly three fingers (index, middle, ring).",
-    match: (s) => s.handPresent && s.fingerCount === 3,
-    dwellMs: 500,
+    practicePrompt: "Raise three fingers (index, middle, and ring).",
+    // Accept index+middle+ring extended regardless of thumb state.
+    match: (s) =>
+      s.handPresent &&
+      s.fingersExtended[1] === true &&
+      s.fingersExtended[2] === true &&
+      s.fingersExtended[3] === true &&
+      s.fingersExtended[4] === false,
+    dwellMs: 400,
   },
   {
     emoji: "🎉",
