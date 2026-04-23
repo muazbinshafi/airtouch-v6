@@ -148,8 +148,9 @@ function FingerCell({ label, active }: { label: string; active: boolean }) {
 }
 
 function PinchBar({ value }: { value: number }) {
-  // value is normalized hand-space distance, ~0..0.25 typical
-  const pct = Math.min(100, Math.max(0, (1 - value / 0.15) * 100));
+  // value is now a hand-scale ratio: ~0.2 closed, ~1.5 fully open.
+  // Higher bar = tighter pinch (more "pressure").
+  const pct = Math.min(100, Math.max(0, (1 - value / 1.2) * 100));
   return (
     <div className="h-2 rounded-full bg-secondary border border-border overflow-hidden relative">
       <div

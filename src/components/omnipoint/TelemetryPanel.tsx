@@ -62,11 +62,11 @@ export function TelemetryPanel({ config, setConfig, bridgeUrl, setBridgeUrl, onR
         </p>
         <Slider
           label="CLICK THRESHOLD"
-          min={0.01} max={0.08} step={0.001}
+          min={0.20} max={0.80} step={0.01}
           value={config.clickThreshold}
           onChange={(v) => setConfig({
             clickThreshold: v,
-            releaseThreshold: Math.max(v + 0.005, config.releaseThreshold),
+            releaseThreshold: Math.max(v + 0.08, config.releaseThreshold),
           })}
         />
         <Slider
