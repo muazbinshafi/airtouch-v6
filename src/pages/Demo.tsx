@@ -54,8 +54,8 @@ const Demo = () => {
 
   const initialize = useCallback(async () => {
     setError(null);
+    TelemetryStore.set({ emergencyStop: false, sensorLost: false });
     setInitializing(true);
-    setProgress(5);
     setStatus("Requesting camera access...");
     try {
       if (typeof window !== "undefined" && window.top !== window.self) {

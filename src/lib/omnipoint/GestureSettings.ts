@@ -90,7 +90,7 @@ export const GESTURE_LABELS: Record<ConfigurableGesture, string> = {
 export const defaultSettings: GestureSettings = {
   bindings: {
     open_palm: {
-      pointerAction: "back",
+      pointerAction: "none",
       drawAction: "undo",
       holdMs: 180,
       cooldownMs: 600,
