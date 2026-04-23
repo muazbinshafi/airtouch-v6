@@ -25,8 +25,11 @@ export interface EngineConfig {
 export const defaultConfig: EngineConfig = {
   sensitivity: 1.4,
   smoothingAlpha: 1.2,        // One-Euro minCutoff. ~1.2 = balanced smooth+snappy.
-  clickThreshold: 0.032,
-  releaseThreshold: 0.05,     // wider hysteresis → fewer click flickers
+  // pinch is now a *ratio* of hand size (pinchDist / wrist→middleMCP).
+  // Closed pinch ≈ 0.20, comfortable open ≈ 0.9. These ratios are
+  // invariant to camera distance and hand angle.
+  clickThreshold: 0.45,
+  releaseThreshold: 0.62,
   scrollSensitivity: 14,
   aspectRatio: 16 / 9,
   deadZone: 0.0006,
@@ -321,8 +324,18 @@ export class GestureEngine {
     const dxp = this.smoothedThumb[0] - this.smoothedIndex[0];
     const dyp = this.smoothedThumb[1] - this.smoothedIndex[1];
     const dzp = this.smoothedThumb[2] - this.smoothedIndex[2];
-    const pinch = Math.hypot(dxp, dyp, dzp);
-    const pressure = Math.min(1, Math.max(0, 1 - pinch / 0.15));
+    const pinchRaw = Math.hypot(dxp, dyp, dzp);
+    // Hand scale = wrist → middle MCP (landmark 9). This is the most stable
+    // anchor for "how big is the hand on screen". Normalising pinch by hand
+    // scale makes click detection invariant to camera distance and angle.
+    const middleMcp = lm[9];
+    const handScale = Math.max(
+      0.06,
+      Math.hypot(middleMcp.x - wrist.x, middleMcp.y - wrist.y, middleMcp.z - wrist.z),
+    );
+    // pinch is now expressed as a ratio of hand size — robust at any distance.
+    const pinch = pinchRaw / handScale;
+    const pressure = Math.min(1, Math.max(0, 1 - pinch / 0.55));
 
     // ---- Finger state detection (extended/folded) ----
     // Index/middle/ring/pinky: tip above PIP (lower y) means extended.
@@ -343,11 +356,12 @@ export class GestureEngine {
     const handedness = rawHandLabel === "Left" ? "Right" : rawHandLabel === "Right" ? "Left" : "none";
 
     // Three-finger pinch (thumb + index + middle close together) → right click
-    const tmPinch = Math.hypot(
+    const tmPinchRaw = Math.hypot(
       thumbTip.x - middleTip.x,
       thumbTip.y - middleTip.y,
       thumbTip.z - middleTip.z,
     );
+    const tmPinch = tmPinchRaw / handScale;
 
     const scrollMode = indexExt && middleExt && !ringExt && !pinkyExt;
     const isFist = !indexExt && !middleExt && !ringExt && !pinkyExt && !thumbExt;

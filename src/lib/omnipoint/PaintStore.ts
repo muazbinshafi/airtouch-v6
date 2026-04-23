@@ -3,7 +3,8 @@
 
 export type PenTool = "pen" | "marker" | "highlighter" | "eraser";
 export type ShapeTool = "line" | "rect" | "ellipse" | "arrow";
-export type Tool = PenTool | ShapeTool;
+export type FillTool = "fill";
+export type Tool = PenTool | ShapeTool | FillTool;
 
 export interface Stroke {
   // Serialized stroke for undo/redo. We keep things simple: each stroke is a
@@ -75,6 +76,9 @@ export const PaintStore = {
   },
   isShape(tool: Tool = snapshot.tool): tool is ShapeTool {
     return tool === "line" || tool === "rect" || tool === "ellipse" || tool === "arrow";
+  },
+  isFill(tool: Tool = snapshot.tool): tool is FillTool {
+    return tool === "fill";
   },
 };
 
