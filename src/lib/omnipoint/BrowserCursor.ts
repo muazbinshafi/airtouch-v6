@@ -67,6 +67,9 @@ export class BrowserCursor {
   private selectBase: ImageData | null = null;
   private selectDragging = false;
   private selectAnchor: DrawSegment | null = null;
+  // Resize handle interaction. When set, the next drag updates the
+  // corresponding edge/corner of selectRect instead of moving it.
+  private selectResize: "nw" | "ne" | "sw" | "se" | "n" | "s" | "e" | "w" | null = null;
   // Spray throttle.
   private lastSprayAt = 0;
   private accentColor = "var(--primary)";
@@ -415,10 +418,10 @@ export class BrowserCursor {
   private sprayAt(x: number, y: number) {
     if (!this.drawCtx) return;
     const ctx = this.drawCtx;
-    const { color, size } = PaintStore.get();
+    const { color, size, sprayDensity } = PaintStore.get();
     ctx.fillStyle = color;
     const radius = Math.max(8, size * 2);
-    const drops = Math.max(6, Math.floor(size * 1.2));
+    const drops = Math.max(4, Math.floor(sprayDensity));
     for (let i = 0; i < drops; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = Math.random() * radius;
