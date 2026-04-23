@@ -25,8 +25,11 @@ export interface EngineConfig {
 export const defaultConfig: EngineConfig = {
   sensitivity: 1.4,
   smoothingAlpha: 1.2,        // One-Euro minCutoff. ~1.2 = balanced smooth+snappy.
-  clickThreshold: 0.045,      // raised + scaled by hand size at runtime
-  releaseThreshold: 0.075,    // wider hysteresis → fewer click flickers
+  // pinch is now a *ratio* of hand size (pinchDist / wrist→middleMCP).
+  // Closed pinch ≈ 0.20, comfortable open ≈ 0.9. These ratios are
+  // invariant to camera distance and hand angle.
+  clickThreshold: 0.45,
+  releaseThreshold: 0.62,
   scrollSensitivity: 14,
   aspectRatio: 16 / 9,
   deadZone: 0.0006,
@@ -353,11 +356,12 @@ export class GestureEngine {
     const handedness = rawHandLabel === "Left" ? "Right" : rawHandLabel === "Right" ? "Left" : "none";
 
     // Three-finger pinch (thumb + index + middle close together) → right click
-    const tmPinch = Math.hypot(
+    const tmPinchRaw = Math.hypot(
       thumbTip.x - middleTip.x,
       thumbTip.y - middleTip.y,
       thumbTip.z - middleTip.z,
     );
+    const tmPinch = tmPinchRaw / handScale;
 
     const scrollMode = indexExt && middleExt && !ringExt && !pinkyExt;
     const isFist = !indexExt && !middleExt && !ringExt && !pinkyExt && !thumbExt;
