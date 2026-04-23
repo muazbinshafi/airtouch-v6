@@ -33,6 +33,7 @@ const Demo = () => {
   const [troubleshooterOpen, setTroubleshooterOpen] = useState(false);
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [pinchOverlayOn, setPinchOverlayOn] = useState(false);
 
   const [config, setConfigState] = useState<EngineConfig>(defaultConfig);
   const [bridgeUrl, setBridgeUrl] = useState("ws://localhost:8765");
@@ -367,12 +368,22 @@ const Demo = () => {
           onTestBridge={handleTestBridge}
         />
         {!showInit && controlMode === "browser" && browserCursor.mode === "draw" && (
-          <PaintToolbar
-            onClear={browserCursor.clearDrawing}
-            onUndo={browserCursor.undo}
-            onRedo={browserCursor.redo}
-            onSave={browserCursor.saveAsPng}
-          />
+          <>
+            <PaintToolbar
+              onClear={browserCursor.clearDrawing}
+              onUndo={browserCursor.undo}
+              onRedo={browserCursor.redo}
+              onSave={browserCursor.saveAsPng}
+              onCrop={browserCursor.cropSelection}
+              onTogglePinchOverlay={() => setPinchOverlayOn((v) => !v)}
+              pinchOverlayOn={pinchOverlayOn}
+              getCanvas={browserCursor.getCanvas}
+            />
+            <PinchConfidenceOverlay
+              visible={pinchOverlayOn}
+              onClose={() => setPinchOverlayOn(false)}
+            />
+          </>
         )}
         <ThemeSettings variant="floating" />
         {!showInit && <PerformanceHUD />}
