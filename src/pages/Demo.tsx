@@ -20,6 +20,7 @@ import { PerformanceHUD } from "@/components/omnipoint/PerformanceHUD";
 import { GestureTour } from "@/components/omnipoint/GestureTour";
 import { HelpCircle } from "lucide-react";
 import { TelemetryQualityBadge } from "@/components/omnipoint/TelemetryQualityBadge";
+import { PinchConfidenceOverlay } from "@/components/omnipoint/PinchConfidenceOverlay";
 import { onEngineConfigApply } from "@/lib/omnipoint/GestureProfiles";
 import { GestureSettingsStore } from "@/lib/omnipoint/GestureSettings";
 
@@ -32,6 +33,7 @@ const Demo = () => {
   const [troubleshooterOpen, setTroubleshooterOpen] = useState(false);
   const [calibrationOpen, setCalibrationOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [pinchOverlayOn, setPinchOverlayOn] = useState(false);
 
   const [config, setConfigState] = useState<EngineConfig>(defaultConfig);
   const [bridgeUrl, setBridgeUrl] = useState("ws://localhost:8765");
@@ -366,12 +368,22 @@ const Demo = () => {
           onTestBridge={handleTestBridge}
         />
         {!showInit && controlMode === "browser" && browserCursor.mode === "draw" && (
-          <PaintToolbar
-            onClear={browserCursor.clearDrawing}
-            onUndo={browserCursor.undo}
-            onRedo={browserCursor.redo}
-            onSave={browserCursor.saveAsPng}
-          />
+          <>
+            <PaintToolbar
+              onClear={browserCursor.clearDrawing}
+              onUndo={browserCursor.undo}
+              onRedo={browserCursor.redo}
+              onSave={browserCursor.saveAsPng}
+              onCrop={browserCursor.cropSelection}
+              onTogglePinchOverlay={() => setPinchOverlayOn((v) => !v)}
+              pinchOverlayOn={pinchOverlayOn}
+              getCanvas={browserCursor.getCanvas}
+            />
+            <PinchConfidenceOverlay
+              visible={pinchOverlayOn}
+              onClose={() => setPinchOverlayOn(false)}
+            />
+          </>
         )}
         <ThemeSettings variant="floating" />
         {!showInit && <PerformanceHUD />}
