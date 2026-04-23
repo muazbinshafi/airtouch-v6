@@ -130,7 +130,7 @@ export const defaultSettings: GestureSettings = {
   accuracyBias: 1.0,
 };
 
-const STORAGE_KEY = "omnipoint.gestureSettings.v1";
+const STORAGE_KEY = "omnipoint.gestureSettings.v2";
 
 function load(): GestureSettings {
   if (typeof localStorage === "undefined") return { ...defaultSettings };
