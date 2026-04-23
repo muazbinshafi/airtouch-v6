@@ -80,11 +80,22 @@ const Demo = () => {
       const canvas = document.getElementById("omnipoint-canvas") as HTMLCanvasElement | null;
       if (!video || !canvas) throw new Error("Sensor surface not mounted");
       video.srcObject = stream;
+      // Wait for metadata so width/height are known before MediaPipe inference.
+      await new Promise<void>((resolve) => {
+        if (video.readyState >= 1 && video.videoWidth > 0) return resolve();
+        const onMeta = () => { video.removeEventListener("loadedmetadata", onMeta); resolve(); };
+        video.addEventListener("loadedmetadata", onMeta);
+      });
+      // play() can reject when the element is briefly hidden during init —
+      // swallow the rejection; the stream is attached and MediaPipe will pull
+      // frames as soon as the element becomes visible.
+      try { await video.play(); } catch { /* autoplay deferred — frames still flow */ }
+      // Wait for at least one decoded frame so detectForVideo has data.
       await new Promise<void>((resolve) => {
         if (video.readyState >= 2) return resolve();
-        video.onloadedmetadata = () => resolve();
+        const onData = () => { video.removeEventListener("loadeddata", onData); resolve(); };
+        video.addEventListener("loadeddata", onData);
       });
-      await video.play();
       setProgress(45);
 
       const bridge = new HIDBridge(bridgeUrl);
