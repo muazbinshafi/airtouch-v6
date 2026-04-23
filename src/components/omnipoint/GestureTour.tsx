@@ -80,31 +80,40 @@ const STEPS: Step[] = [
     dwellMs: 100,
   },
   {
-    emoji: "✊",
-    title: "Fist to drag",
+    emoji: "🤏",
+    title: "Hold pinch to drag",
     description:
-      "Make a closed fist to grab. Move your hand while still in a fist to drag — open your hand to drop.",
-    hint: "Great for selecting text or moving windows.",
+      "Pinch and keep holding to drag. Release your pinch to drop the item.",
+    hint: "Start with a click, then keep the pinch closed a little longer.",
     Icon: Grab,
-    practicePrompt: "Close your hand into a fist and hold it briefly.",
-    // Accept any pose where all four non-thumb fingers are folded
-    // (thumb detection is unreliable, so we ignore it).
+    practicePrompt: "Pinch and hold your thumb and index finger together.",
+    match: (s) =>
+      s.handPresent && (s.gesture === "drag" || (s.pinchDistance > 0 && s.pinchDistance < 0.04)),
+    dwellMs: 220,
+  },
+  {
+    emoji: "✌️",
+    title: "Two fingers to scroll",
+    description:
+      "Raise your index and middle fingers together, then move them up or down to scroll.",
+    hint: "Keep ring and pinky folded for more reliable scroll detection.",
+    Icon: Move,
+    practicePrompt: "Raise your index and middle fingers together.",
     match: (s) =>
       s.handPresent &&
-      (s.gesture === "fist" ||
-        (s.fingersExtended[1] === false &&
-          s.fingersExtended[2] === false &&
-          s.fingersExtended[3] === false &&
-          s.fingersExtended[4] === false)),
+      s.fingersExtended[1] === true &&
+      s.fingersExtended[2] === true &&
+      s.fingersExtended[3] === false &&
+      s.fingersExtended[4] === false,
     dwellMs: 350,
   },
   {
     emoji: "✋",
-    title: "Open palm to scroll",
+    title: "Open palm for shortcuts",
     description:
-      "Show your open palm and move it up or down to scroll the page. Tilt left/right for horizontal scroll.",
-    hint: "Slow movements scroll smoothly; fast ones jump.",
-    Icon: Move,
+      "Open palm is a configurable static gesture. By default it is safe in pointer mode and acts as undo in draw mode.",
+    hint: "Use the Gestures panel if you want to bind open palm to another action.",
+    Icon: Sparkles,
     practicePrompt: "Show your full open palm to the camera.",
     match: (s) =>
       s.handPresent &&
@@ -115,11 +124,11 @@ const STEPS: Step[] = [
     dwellMs: 400,
   },
   {
-    emoji: "🤙",
+    emoji: "🤟",
     title: "Three fingers for shortcuts",
     description:
-      "Lift three fingers together to trigger custom gesture shortcuts you can configure in Settings.",
-    hint: "Map your favorite hotkeys for instant access.",
+      "Raise index, middle, and ring fingers for a configurable static shortcut pose.",
+    hint: "Thumb can vary — the detector mainly cares about the three center fingers.",
     Icon: Sparkles,
     practicePrompt: "Raise three fingers (index, middle, and ring).",
     // Accept index+middle+ring extended regardless of thumb state.
