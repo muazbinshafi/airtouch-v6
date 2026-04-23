@@ -52,13 +52,22 @@ const SPECIAL_TOOLS: { id: "picker" | "spray" | "text" | "select" | "polygon" | 
   { id: "curve",   label: "Curve (3-point bezier)",    icon: "ᔕ" },
 ];
 
-export function PaintToolbar({ onClear, onUndo, onRedo, onSave }: Props) {
+export function PaintToolbar({
+  onClear, onUndo, onRedo, onSave, onCrop,
+  onTogglePinchOverlay, pinchOverlayOn, getCanvas,
+}: Props) {
   const paint = usePaint();
   const history = usePaintHistory();
 
   const setTool = (tool: Tool) => PaintStore.set({ tool });
   const setColor = (color: string) => PaintStore.set({ color });
   const setSize = (size: number) => PaintStore.set({ size });
+  const setSprayDensity = (sprayDensity: number) => PaintStore.set({ sprayDensity });
+  const setFontSize = (fontSize: number) => PaintStore.set({ fontSize });
+
+  const handleExportPng = () => { const c = getCanvas(); if (c) exportPng(c); };
+  const handleExportPdf = () => { const c = getCanvas(); if (c) exportPdf(c); };
+  const handleShare = () => { const c = getCanvas(); if (c) void sharePng(c); };
 
   return (
     <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 panel backdrop-blur px-2 sm:px-3 py-2 flex items-center gap-2 sm:gap-3 max-w-[calc(100vw-1rem)] flex-wrap justify-center overflow-y-auto max-h-[40vh]">
@@ -171,10 +180,62 @@ export function PaintToolbar({ onClear, onUndo, onRedo, onSave }: Props) {
 
       <Divider />
 
+      <Group label={paint.tool === "spray" ? "DENSITY" : paint.tool === "text" ? "FONT" : "EXTRAS"}>
+        {paint.tool === "spray" ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={4}
+              max={40}
+              value={paint.sprayDensity}
+              onChange={(e) => setSprayDensity(Number(e.target.value))}
+              className="w-20 accent-primary"
+              title={`${paint.sprayDensity} drops`}
+            />
+            <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground w-10">
+              {paint.sprayDensity}
+            </span>
+          </div>
+        ) : paint.tool === "text" ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={10}
+              max={96}
+              value={paint.fontSize}
+              onChange={(e) => setFontSize(Number(e.target.value))}
+              className="w-20 accent-primary"
+              title={`${paint.fontSize}px`}
+            />
+            <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground w-10">
+              {paint.fontSize}px
+            </span>
+          </div>
+        ) : (
+          <span className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground/60">
+            (tool-specific)
+          </span>
+        )}
+      </Group>
+
+      <Divider />
+
       <Group label="ACTIONS">
         <ActionBtn onClick={onUndo} disabled={!history.canUndo} title="Undo (open palm)">↶ UNDO</ActionBtn>
         <ActionBtn onClick={onRedo} disabled={!history.canRedo} title="Redo">↷ REDO</ActionBtn>
-        <ActionBtn onClick={onSave} title="Save as PNG">⤓ PNG</ActionBtn>
+        {paint.tool === "select" && (
+          <ActionBtn onClick={onCrop} title="Crop to selection">⛶ CROP</ActionBtn>
+        )}
+        <ActionBtn onClick={onSave} title="Quick save PNG">⤓ PNG</ActionBtn>
+        <ActionBtn onClick={handleExportPng} title="Export PNG + JSON metadata">⇪ PNG+META</ActionBtn>
+        <ActionBtn onClick={handleExportPdf} title="Export PDF with metadata">⇪ PDF</ActionBtn>
+        <ActionBtn onClick={handleShare} title="Share canvas">↗ SHARE</ActionBtn>
+        <ActionBtn
+          onClick={onTogglePinchOverlay}
+          title="Toggle pinch confidence monitor"
+        >
+          {pinchOverlayOn ? "◉ PINCH" : "○ PINCH"}
+        </ActionBtn>
         <ActionBtn onClick={onClear} title="Clear canvas" tone="danger">✕ CLEAR</ActionBtn>
       </Group>
     </div>

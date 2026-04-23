@@ -20,6 +20,7 @@ import { PerformanceHUD } from "@/components/omnipoint/PerformanceHUD";
 import { GestureTour } from "@/components/omnipoint/GestureTour";
 import { HelpCircle } from "lucide-react";
 import { TelemetryQualityBadge } from "@/components/omnipoint/TelemetryQualityBadge";
+import { PinchConfidenceOverlay } from "@/components/omnipoint/PinchConfidenceOverlay";
 import { onEngineConfigApply } from "@/lib/omnipoint/GestureProfiles";
 import { GestureSettingsStore } from "@/lib/omnipoint/GestureSettings";
 
