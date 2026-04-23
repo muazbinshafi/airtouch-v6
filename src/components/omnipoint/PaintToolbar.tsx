@@ -4,12 +4,17 @@
 
 import { PaintStore, type PenTool, type ShapeTool, type Tool } from "@/lib/omnipoint/PaintStore";
 import { usePaint, usePaintHistory } from "@/hooks/usePaint";
+import { exportPng, exportPdf, sharePng } from "@/lib/omnipoint/PaintExport";
 
 interface Props {
   onClear: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onSave: () => void;
+  onCrop: () => void;
+  onTogglePinchOverlay: () => void;
+  pinchOverlayOn: boolean;
+  getCanvas: () => HTMLCanvasElement | null;
 }
 
 const SWATCHES = [
