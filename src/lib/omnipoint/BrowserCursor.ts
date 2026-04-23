@@ -694,6 +694,7 @@ export class BrowserCursor {
       const tool = PaintStore.get().tool;
       const isShape = PaintStore.isShape(tool);
       const isFill = PaintStore.isFill(tool);
+      const isSpecial = PaintStore.isSpecial(tool);
 
       if (isFill) {
         // Trigger flood-fill once on the rising edge of pinch / click.
@@ -704,6 +705,173 @@ export class BrowserCursor {
           this.floodFill(x, y);
         }
         this.setLabel(isDrawing ? "FILL" : "FILL · CLICK TO POUR");
+        this.tryFireStaticGesture(g, snap.confidence, "draw");
+        this.lastGesture = g;
+        return;
+      }
+
+      if (isSpecial) {
+        const wasDrawing =
+          this.lastGesture === "click" || this.lastGesture === "drag";
+        const risingEdge = isDrawing && !wasDrawing;
+        const fallingEdge = !isDrawing && wasDrawing;
+
+        if (tool === "picker") {
+          if (risingEdge) {
+            const c = this.pickColorAt(x, y);
+            if (c) {
+              PaintStore.set({ color: c });
+              // Auto-switch back to pen so the picked color is immediately useful.
+              PaintStore.set({ tool: "pen" });
+            }
+          }
+          this.setLabel("PICKER");
+        } else if (tool === "spray") {
+          if (risingEdge) {
+            const snapImg = this.snapshotCanvas();
+            if (snapImg) PaintHistory.push(snapImg);
+          }
+          if (isDrawing) {
+            const now = performance.now();
+            if (now - this.lastSprayAt > 16) {
+              this.sprayAt(x, y);
+              this.lastSprayAt = now;
+            }
+          }
+          this.setLabel(isDrawing ? "SPRAY" : "SPRAY · PINCH TO PAINT");
+        } else if (tool === "text") {
+          // First click places caret; subsequent clicks reposition the caret
+          // (committing the previous buffer first).
+          if (risingEdge) {
+            const cur = PaintStore.get();
+            if (cur.textAnchor && cur.textBuffer) this.commitText();
+            PaintStore.set({ textAnchor: { x, y }, textBuffer: "" });
+            this.shapeBase = this.snapshotCanvas();
+          }
+          this.drawTextPreview();
+          this.setLabel("TEXT · TYPE ON KEYBOARD");
+        } else if (tool === "select") {
+          if (risingEdge) {
+            // Start either a new marquee OR begin a move if the click is
+            // inside an existing selection.
+            const inside =
+              this.selectRect &&
+              x >= this.selectRect.x && x <= this.selectRect.x + this.selectRect.w &&
+              y >= this.selectRect.y && y <= this.selectRect.y + this.selectRect.h;
+            if (inside) {
+              this.selectDragging = true;
+              this.selectAnchor = { x: x - this.selectRect!.x, y: y - this.selectRect!.y };
+            } else {
+              const snapImg = this.snapshotCanvas();
+              if (snapImg) PaintHistory.push(snapImg);
+              this.selectBase = snapImg;
+              this.selectAnchor = { x, y };
+              this.selectRect = null;
+              this.selectImg = null;
+              this.selectDragging = false;
+            }
+          }
+          if (isDrawing) {
+            if (this.selectDragging && this.selectImg && this.selectRect && this.selectAnchor) {
+              // Move the floating selection
+              this.restoreCanvas(this.selectBase);
+              const nx = x - this.selectAnchor.x;
+              const ny = y - this.selectAnchor.y;
+              this.selectRect.x = nx;
+              this.selectRect.y = ny;
+              this.drawCtx?.putImageData(this.selectImg, Math.floor(nx * (window.devicePixelRatio || 1)), Math.floor(ny * (window.devicePixelRatio || 1)));
+              const ctx = this.drawCtx!;
+              ctx.save();
+              ctx.strokeStyle = "rgba(59,130,246,0.95)";
+              ctx.setLineDash([6, 4]);
+              ctx.strokeRect(nx, ny, this.selectRect.w, this.selectRect.h);
+              ctx.restore();
+            } else if (this.selectAnchor) {
+              this.drawSelectPreview(x, y);
+            }
+          }
+          if (fallingEdge) {
+            if (this.selectDragging) {
+              // Finalize move — bake new selectBase
+              this.selectBase = this.snapshotCanvas();
+              this.selectDragging = false;
+            } else if (this.selectAnchor) {
+              const sx = Math.min(this.selectAnchor.x, x);
+              const sy = Math.min(this.selectAnchor.y, y);
+              const w = Math.abs(x - this.selectAnchor.x);
+              const h = Math.abs(y - this.selectAnchor.y);
+              if (w > 4 && h > 4 && this.drawCtx) {
+                const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+                const img = this.drawCtx.getImageData(
+                  Math.floor(sx * dpr), Math.floor(sy * dpr),
+                  Math.floor(w * dpr), Math.floor(h * dpr),
+                );
+                this.selectRect = { x: sx, y: sy, w, h };
+                this.selectImg = img;
+              } else {
+                this.selectRect = null;
+                this.selectImg = null;
+              }
+              this.selectAnchor = null;
+            }
+          }
+          this.setLabel(this.selectImg ? "SELECT · DRAG TO MOVE" : "SELECT · DRAG REGION");
+        } else if (tool === "polygon") {
+          // Rising edge = commit a vertex. Two pinches within 350ms = close.
+          if (risingEdge) {
+            const now = performance.now();
+            if (this.polyPts.length === 0) {
+              const snapImg = this.snapshotCanvas();
+              if (snapImg) PaintHistory.push(snapImg);
+              this.polyBase = snapImg;
+            }
+            if (now - this.lastClickPinchAt < 350 && this.polyPts.length >= 2) {
+              // Close the polygon.
+              this.applyPenStyle();
+              const ctx = this.drawCtx!;
+              ctx.beginPath();
+              ctx.moveTo(this.polyPts[0].x, this.polyPts[0].y);
+              for (let i = 1; i < this.polyPts.length; i++) {
+                ctx.lineTo(this.polyPts[i].x, this.polyPts[i].y);
+              }
+              ctx.closePath();
+              ctx.stroke();
+              this.resetCtx();
+              this.polyPts = [];
+              this.polyBase = null;
+            } else {
+              this.polyPts.push({ x, y });
+            }
+            this.lastClickPinchAt = now;
+          }
+          if (this.polyPts.length > 0) this.drawPolyPreview(x, y);
+          this.setLabel(`POLYGON · ${this.polyPts.length} PT${this.polyPts.length === 1 ? "" : "S"} · DBL-PINCH TO CLOSE`);
+        } else if (tool === "curve") {
+          if (risingEdge) {
+            if (this.polyPts.length === 0) {
+              const snapImg = this.snapshotCanvas();
+              if (snapImg) PaintHistory.push(snapImg);
+              this.polyBase = snapImg;
+              this.polyPts.push({ x, y });
+            } else if (this.polyPts.length === 1) {
+              this.polyPts.push({ x, y });
+            } else if (this.polyPts.length === 2) {
+              // Third click commits the bezier with this point as control.
+              this.applyPenStyle();
+              const ctx = this.drawCtx!;
+              ctx.beginPath();
+              ctx.moveTo(this.polyPts[0].x, this.polyPts[0].y);
+              ctx.quadraticCurveTo(x, y, this.polyPts[1].x, this.polyPts[1].y);
+              ctx.stroke();
+              this.resetCtx();
+              this.polyPts = [];
+              this.polyBase = null;
+            }
+          }
+          if (this.polyPts.length > 0) this.drawCurvePreview(x, y);
+          this.setLabel(`CURVE · ${this.polyPts.length}/3 PTS`);
+        }
+
         this.tryFireStaticGesture(g, snap.confidence, "draw");
         this.lastGesture = g;
         return;
