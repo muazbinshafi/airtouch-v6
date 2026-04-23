@@ -34,6 +34,10 @@ const SHAPE_TOOLS: { id: ShapeTool; label: string; icon: string }[] = [
   { id: "arrow",   label: "Arrow",   icon: "➜" },
 ];
 
+const FILL_TOOLS: { id: "fill"; label: string; icon: string }[] = [
+  { id: "fill", label: "Fill bucket", icon: "🪣" },
+];
+
 export function PaintToolbar({ onClear, onUndo, onRedo, onSave }: Props) {
   const paint = usePaint();
   const history = usePaintHistory();
@@ -56,6 +60,16 @@ export function PaintToolbar({ onClear, onUndo, onRedo, onSave }: Props) {
 
       <Group label="SHAPES">
         {SHAPE_TOOLS.map((t) => (
+          <ToolBtn key={t.id} active={paint.tool === t.id} onClick={() => setTool(t.id)} title={t.label}>
+            <span className="text-base leading-none">{t.icon}</span>
+          </ToolBtn>
+        ))}
+      </Group>
+
+      <Divider />
+
+      <Group label="FILL">
+        {FILL_TOOLS.map((t) => (
           <ToolBtn key={t.id} active={paint.tool === t.id} onClick={() => setTool(t.id)} title={t.label}>
             <span className="text-base leading-none">{t.icon}</span>
           </ToolBtn>
