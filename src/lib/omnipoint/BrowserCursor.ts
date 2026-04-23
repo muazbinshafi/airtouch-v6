@@ -55,6 +55,20 @@ export class BrowserCursor {
   // and a snapshot of the canvas to redraw the rubber-band on each frame.
   private shapeStart: DrawSegment | null = null;
   private shapeBase: ImageData | null = null;
+  // Polygon / curve in-progress state. polyPts holds the committed clicks
+  // for polygon / curve tools; doubleClickAt is used to detect the closing
+  // double-pinch on polygon.
+  private polyPts: DrawSegment[] = [];
+  private polyBase: ImageData | null = null;
+  private lastClickPinchAt = 0;
+  // Selection (marquee) state.
+  private selectRect: { x: number; y: number; w: number; h: number } | null = null;
+  private selectImg: ImageData | null = null;
+  private selectBase: ImageData | null = null;
+  private selectDragging = false;
+  private selectAnchor: DrawSegment | null = null;
+  // Spray throttle.
+  private lastSprayAt = 0;
   private accentColor = "var(--primary)";
 
   // Pose-hold buffer for higher accuracy on static gestures. Tracks the
@@ -346,6 +360,139 @@ export class BrowserCursor {
     if (!this.drawCtx) return;
     this.drawCtx.globalAlpha = 1;
     this.drawCtx.globalCompositeOperation = "source-over";
+  }
+
+  /** Sample the pixel at canvas coords and return its CSS hex color. */
+  private pickColorAt(x: number, y: number): string | null {
+    if (!this.drawCtx) return null;
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const px = Math.floor(x * dpr);
+    const py = Math.floor(y * dpr);
+    const data = this.drawCtx.getImageData(px, py, 1, 1).data;
+    if (data[3] < 8) return null; // transparent pixel
+    const toHex = (n: number) => n.toString(16).padStart(2, "0");
+    return `#${toHex(data[0])}${toHex(data[1])}${toHex(data[2])}`;
+  }
+
+  /** Spatter spray paint inside a circle around (x,y). */
+  private sprayAt(x: number, y: number) {
+    if (!this.drawCtx) return;
+    const ctx = this.drawCtx;
+    const { color, size } = PaintStore.get();
+    ctx.fillStyle = color;
+    const radius = Math.max(8, size * 2);
+    const drops = Math.max(6, Math.floor(size * 1.2));
+    for (let i = 0; i < drops; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = Math.random() * radius;
+      const dx = Math.cos(a) * r;
+      const dy = Math.sin(a) * r;
+      ctx.beginPath();
+      ctx.arc(x + dx, y + dy, 0.8 + Math.random() * 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /** Commit the live text buffer onto the canvas. */
+  commitText() {
+    if (!this.drawCtx) return;
+    const { textBuffer, textAnchor, color, fontSize } = PaintStore.get();
+    if (!textAnchor || !textBuffer) {
+      PaintStore.set({ textBuffer: "", textAnchor: null });
+      return;
+    }
+    const snapImg = this.snapshotCanvas();
+    if (snapImg) PaintHistory.push(snapImg);
+    const ctx = this.drawCtx;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = `${fontSize}px ui-sans-serif, system-ui, "Plus Jakarta Sans", sans-serif`;
+    ctx.textBaseline = "top";
+    const lines = textBuffer.split("\n");
+    lines.forEach((line, i) => {
+      ctx.fillText(line, textAnchor.x, textAnchor.y + i * (fontSize * 1.2));
+    });
+    ctx.restore();
+    PaintStore.set({ textBuffer: "", textAnchor: null });
+  }
+
+  /** Render the in-progress text caret + buffer (preview only). */
+  private drawTextPreview() {
+    if (!this.drawCtx) return;
+    const base = this.shapeBase ?? this.snapshotCanvas();
+    if (this.shapeBase == null && base) this.shapeBase = base;
+    this.restoreCanvas(base);
+    const { textBuffer, textAnchor, color, fontSize } = PaintStore.get();
+    if (!textAnchor) return;
+    const ctx = this.drawCtx;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.font = `${fontSize}px ui-sans-serif, system-ui, "Plus Jakarta Sans", sans-serif`;
+    ctx.textBaseline = "top";
+    const lines = (textBuffer + "▍").split("\n");
+    lines.forEach((line, i) => {
+      ctx.fillText(line, textAnchor.x, textAnchor.y + i * (fontSize * 1.2));
+    });
+    ctx.restore();
+  }
+
+  /** Polygon: draw committed segments + rubber band to (x,y). */
+  private drawPolyPreview(x: number, y: number) {
+    if (!this.drawCtx || this.polyPts.length === 0) return;
+    this.restoreCanvas(this.polyBase);
+    this.applyPenStyle();
+    const ctx = this.drawCtx;
+    ctx.beginPath();
+    ctx.moveTo(this.polyPts[0].x, this.polyPts[0].y);
+    for (let i = 1; i < this.polyPts.length; i++) {
+      ctx.lineTo(this.polyPts[i].x, this.polyPts[i].y);
+    }
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    // Vertex dots
+    ctx.fillStyle = ctx.strokeStyle as string;
+    for (const p of this.polyPts) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(2, ctx.lineWidth * 0.7), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    this.resetCtx();
+  }
+
+  /** 3-click curve: anchor1 → control → anchor2 (quadratic bezier). */
+  private drawCurvePreview(x: number, y: number) {
+    if (!this.drawCtx || this.polyPts.length === 0) return;
+    this.restoreCanvas(this.polyBase);
+    this.applyPenStyle();
+    const ctx = this.drawCtx;
+    ctx.beginPath();
+    if (this.polyPts.length === 1) {
+      // Just dragging from anchor → preview straight line
+      ctx.moveTo(this.polyPts[0].x, this.polyPts[0].y);
+      ctx.lineTo(x, y);
+    } else if (this.polyPts.length === 2) {
+      // Anchor1 → cursor (control) → anchor2
+      ctx.moveTo(this.polyPts[0].x, this.polyPts[0].y);
+      ctx.quadraticCurveTo(x, y, this.polyPts[1].x, this.polyPts[1].y);
+    }
+    ctx.stroke();
+    this.resetCtx();
+  }
+
+  /** Marquee select rubber band. */
+  private drawSelectPreview(x: number, y: number) {
+    if (!this.drawCtx || !this.selectAnchor) return;
+    this.restoreCanvas(this.selectBase);
+    const ctx = this.drawCtx;
+    ctx.save();
+    ctx.strokeStyle = "rgba(59,130,246,0.95)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(
+      this.selectAnchor.x, this.selectAnchor.y,
+      x - this.selectAnchor.x, y - this.selectAnchor.y,
+    );
+    ctx.restore();
   }
 
   private snapshotCanvas(): ImageData | null {
