@@ -885,49 +885,70 @@ export class BrowserCursor {
           this.setLabel("TEXT · TYPE ON KEYBOARD");
         } else if (tool === "select") {
           if (risingEdge) {
-            // Start either a new marquee OR begin a move if the click is
-            // inside an existing selection.
-            const inside =
-              this.selectRect &&
-              x >= this.selectRect.x && x <= this.selectRect.x + this.selectRect.w &&
-              y >= this.selectRect.y && y <= this.selectRect.y + this.selectRect.h;
-            if (inside) {
-              this.selectDragging = true;
-              this.selectAnchor = { x: x - this.selectRect!.x, y: y - this.selectRect!.y };
-            } else {
-              const snapImg = this.snapshotCanvas();
-              if (snapImg) PaintHistory.push(snapImg);
-              this.selectBase = snapImg;
+            // Priority 1: clicked on a resize handle of an existing selection
+            const handle = this.hitSelectHandle(x, y);
+            if (handle && this.selectRect && this.selectImg) {
+              this.selectResize = handle;
               this.selectAnchor = { x, y };
-              this.selectRect = null;
-              this.selectImg = null;
-              this.selectDragging = false;
+            } else {
+              const inside =
+                this.selectRect &&
+                x >= this.selectRect.x && x <= this.selectRect.x + this.selectRect.w &&
+                y >= this.selectRect.y && y <= this.selectRect.y + this.selectRect.h;
+              if (inside) {
+                this.selectDragging = true;
+                this.selectAnchor = { x: x - this.selectRect!.x, y: y - this.selectRect!.y };
+              } else {
+                // Brand new marquee — commit any prior floating selection first.
+                if (this.selectRect && this.selectImg) {
+                  this.renderSelectionWithHandles();
+                  this.selectBase = this.snapshotCanvas();
+                }
+                const snapImg = this.snapshotCanvas();
+                if (snapImg) PaintHistory.push(snapImg);
+                this.selectBase = snapImg;
+                this.selectAnchor = { x, y };
+                this.selectRect = null;
+                this.selectImg = null;
+                this.selectDragging = false;
+                this.selectResize = null;
+              }
             }
           }
           if (isDrawing) {
-            if (this.selectDragging && this.selectImg && this.selectRect && this.selectAnchor) {
-              // Move the floating selection
-              this.restoreCanvas(this.selectBase);
+            if (this.selectResize && this.selectRect && this.selectImg) {
+              // Resize the floating selection by the active handle
+              const r = this.selectRect;
+              const right = r.x + r.w;
+              const bottom = r.y + r.h;
+              if (this.selectResize.includes("w")) { r.w = right - x; r.x = x; }
+              if (this.selectResize.includes("e")) { r.w = x - r.x; }
+              if (this.selectResize.includes("n")) { r.h = bottom - y; r.y = y; }
+              if (this.selectResize.includes("s")) { r.h = y - r.y; }
+              // Disallow inverted/zero rects
+              if (r.w < 4) r.w = 4;
+              if (r.h < 4) r.h = 4;
+              this.renderSelectionWithHandles();
+            } else if (this.selectDragging && this.selectImg && this.selectRect && this.selectAnchor) {
               const nx = x - this.selectAnchor.x;
               const ny = y - this.selectAnchor.y;
               this.selectRect.x = nx;
               this.selectRect.y = ny;
-              this.drawCtx?.putImageData(this.selectImg, Math.floor(nx * (window.devicePixelRatio || 1)), Math.floor(ny * (window.devicePixelRatio || 1)));
-              const ctx = this.drawCtx!;
-              ctx.save();
-              ctx.strokeStyle = "rgba(59,130,246,0.95)";
-              ctx.setLineDash([6, 4]);
-              ctx.strokeRect(nx, ny, this.selectRect.w, this.selectRect.h);
-              ctx.restore();
+              this.renderSelectionWithHandles();
             } else if (this.selectAnchor) {
               this.drawSelectPreview(x, y);
             }
           }
           if (fallingEdge) {
-            if (this.selectDragging) {
-              // Finalize move — bake new selectBase
-              this.selectBase = this.snapshotCanvas();
+            if (this.selectResize) {
+              // Keep selection floating; user can resize again, drag, crop, or commit
+              this.selectResize = null;
+              this.selectAnchor = null;
+            } else if (this.selectDragging) {
+              // Don't bake yet — keep floating so they can drag/resize/crop
               this.selectDragging = false;
+              this.selectAnchor = null;
+              this.renderSelectionWithHandles();
             } else if (this.selectAnchor) {
               const sx = Math.min(this.selectAnchor.x, x);
               const sy = Math.min(this.selectAnchor.y, y);
@@ -941,6 +962,7 @@ export class BrowserCursor {
                 );
                 this.selectRect = { x: sx, y: sy, w, h };
                 this.selectImg = img;
+                this.renderSelectionWithHandles();
               } else {
                 this.selectRect = null;
                 this.selectImg = null;
@@ -948,7 +970,11 @@ export class BrowserCursor {
               this.selectAnchor = null;
             }
           }
-          this.setLabel(this.selectImg ? "SELECT · DRAG TO MOVE" : "SELECT · DRAG REGION");
+          this.setLabel(
+            this.selectImg
+              ? "SELECT · HANDLES TO RESIZE · DRAG TO MOVE · CROP TO COMMIT"
+              : "SELECT · DRAG REGION",
+          );
         } else if (tool === "polygon") {
           // Rising edge = commit a vertex. Two pinches within 350ms = close.
           if (risingEdge) {
