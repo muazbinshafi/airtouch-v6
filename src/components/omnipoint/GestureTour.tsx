@@ -20,6 +20,7 @@ import {
   Pointer, Grab, Move, Sparkles, CheckCircle2, Play, Loader2,
 } from "lucide-react";
 import { TelemetryStore, type TelemetrySnapshot } from "@/lib/omnipoint/TelemetryStore";
+import { setSuppressStaticGestureActions } from "@/lib/omnipoint/BrowserCursor";
 
 const STORAGE_KEY = "omnipoint:gesture-tour-seen-v1";
 
@@ -233,6 +234,14 @@ export function GestureTour({ forceOpen, onClose, autoShow = true }: GestureTour
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     };
   }, []);
+
+  // While the tour is open, suppress destructive static-gesture actions
+  // (back, emergency-stop, next, zoom, etc.) so practicing the poses
+  // doesn't navigate the page away or kill input.
+  useEffect(() => {
+    setSuppressStaticGestureActions(open);
+    return () => setSuppressStaticGestureActions(false);
+  }, [open]);
 
   // ---------- keyboard ----------
   useEffect(() => {
