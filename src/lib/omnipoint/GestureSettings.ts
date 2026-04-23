@@ -97,14 +97,14 @@ export const defaultSettings: GestureSettings = {
       enabled: true,
     },
     thumbs_up: {
-      pointerAction: "zoom_in",
+      pointerAction: "none",
       drawAction: "redo",
       holdMs: 200,
       cooldownMs: 350,
       enabled: true,
     },
     pinky_only: {
-      pointerAction: "zoom_out",
+      pointerAction: "none",
       drawAction: "clear",
       holdMs: 220,
       cooldownMs: 350,
@@ -130,7 +130,7 @@ export const defaultSettings: GestureSettings = {
   accuracyBias: 1.0,
 };
 
-const STORAGE_KEY = "omnipoint.gestureSettings.v1";
+const STORAGE_KEY = "omnipoint.gestureSettings.v2";
 
 function load(): GestureSettings {
   if (typeof localStorage === "undefined") return { ...defaultSettings };
