@@ -687,6 +687,99 @@ export class BrowserCursor {
     a.remove();
   }
 
+  /** Public accessor so the export module can grab the live canvas. */
+  getDrawCanvas(): HTMLCanvasElement {
+    return this.drawCanvas;
+  }
+
+  /** Hit-test a point against the active selection's resize handles. */
+  private hitSelectHandle(x: number, y: number):
+    "nw" | "ne" | "sw" | "se" | "n" | "s" | "e" | "w" | null {
+    if (!this.selectRect) return null;
+    const r = this.selectRect;
+    const tol = 12;
+    const nearL = Math.abs(x - r.x) <= tol;
+    const nearR = Math.abs(x - (r.x + r.w)) <= tol;
+    const nearT = Math.abs(y - r.y) <= tol;
+    const nearB = Math.abs(y - (r.y + r.h)) <= tol;
+    const inX = x >= r.x - tol && x <= r.x + r.w + tol;
+    const inY = y >= r.y - tol && y <= r.y + r.h + tol;
+    if (!inX || !inY) return null;
+    if (nearL && nearT) return "nw";
+    if (nearR && nearT) return "ne";
+    if (nearL && nearB) return "sw";
+    if (nearR && nearB) return "se";
+    if (nearT) return "n";
+    if (nearB) return "s";
+    if (nearL) return "w";
+    if (nearR) return "e";
+    return null;
+  }
+
+  /** Re-render the selection rect with handles + the floating image. */
+  private renderSelectionWithHandles() {
+    if (!this.drawCtx || !this.selectRect) return;
+    this.restoreCanvas(this.selectBase);
+    const ctx = this.drawCtx;
+    const r = this.selectRect;
+    if (this.selectImg) {
+      // Stretch the captured image to current rect using a temp canvas.
+      const tmp = document.createElement("canvas");
+      tmp.width = this.selectImg.width;
+      tmp.height = this.selectImg.height;
+      tmp.getContext("2d")?.putImageData(this.selectImg, 0, 0);
+      ctx.drawImage(tmp, r.x, r.y, r.w, r.h);
+    }
+    ctx.save();
+    ctx.strokeStyle = "rgba(59,130,246,0.95)";
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(r.x, r.y, r.w, r.h);
+    ctx.setLineDash([]);
+    // 8 handles
+    const handles: [number, number][] = [
+      [r.x, r.y], [r.x + r.w / 2, r.y], [r.x + r.w, r.y],
+      [r.x, r.y + r.h / 2],             [r.x + r.w, r.y + r.h / 2],
+      [r.x, r.y + r.h], [r.x + r.w / 2, r.y + r.h], [r.x + r.w, r.y + r.h],
+    ];
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "rgba(59,130,246,1)";
+    ctx.lineWidth = 1.5;
+    for (const [hx, hy] of handles) {
+      ctx.beginPath();
+      ctx.rect(hx - 4, hy - 4, 8, 8);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Crop the canvas to the active selection. Pushes to undo stack. */
+  cropToSelection() {
+    if (!this.drawCtx || !this.selectRect || !this.selectImg) return;
+    const snapImg = this.snapshotCanvas();
+    if (snapImg) PaintHistory.push(snapImg);
+    const ctx = this.drawCtx;
+    const r = this.selectRect;
+    ctx.clearRect(0, 0, this.drawCanvas.width, this.drawCanvas.height);
+    const tmp = document.createElement("canvas");
+    tmp.width = this.selectImg.width;
+    tmp.height = this.selectImg.height;
+    tmp.getContext("2d")?.putImageData(this.selectImg, 0, 0);
+    ctx.drawImage(tmp, r.x, r.y, r.w, r.h);
+    this.selectRect = null;
+    this.selectImg = null;
+    this.selectBase = this.snapshotCanvas();
+  }
+
+  /** Bake the current selection (commit position + size) without cropping. */
+  commitSelection() {
+    if (!this.selectRect) return;
+    this.selectBase = this.snapshotCanvas();
+    this.selectRect = null;
+    this.selectImg = null;
+  }
+
   private setLabel(text: string) {
     if (this.label.textContent !== text) this.label.textContent = text;
     this.label.style.opacity = text ? "1" : "0";
