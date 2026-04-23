@@ -1,6 +1,7 @@
 // useBrowserCursor — owns a single BrowserCursor instance with mode control.
 // The cursor overlay is mounted in document.body once; this hook just
-// coordinates lifecycle + exposes setMode/clearDrawing/undo/redo/save to UI.
+// coordinates lifecycle + exposes setMode/clearDrawing/undo/redo/save/crop
+// and a getCanvas() accessor used by the export module.
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { BrowserCursor, type CursorMode } from "@/lib/omnipoint/BrowserCursor";
@@ -31,6 +32,19 @@ export function useBrowserCursor(active: boolean, initialMode: CursorMode = "poi
   const undo = useCallback(() => ref.current?.undo(), []);
   const redo = useCallback(() => ref.current?.redo(), []);
   const saveAsPng = useCallback(() => ref.current?.saveAsPng(), []);
+  const cropSelection = useCallback(() => ref.current?.cropToSelection(), []);
+  const commitSelection = useCallback(() => ref.current?.commitSelection(), []);
+  const getCanvas = useCallback(() => ref.current?.getDrawCanvas() ?? null, []);
 
-  return { mode, setMode, clearDrawing, undo, redo, saveAsPng };
+  return {
+    mode,
+    setMode,
+    clearDrawing,
+    undo,
+    redo,
+    saveAsPng,
+    cropSelection,
+    commitSelection,
+    getCanvas,
+  };
 }
