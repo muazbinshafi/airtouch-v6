@@ -321,8 +321,18 @@ export class GestureEngine {
     const dxp = this.smoothedThumb[0] - this.smoothedIndex[0];
     const dyp = this.smoothedThumb[1] - this.smoothedIndex[1];
     const dzp = this.smoothedThumb[2] - this.smoothedIndex[2];
-    const pinch = Math.hypot(dxp, dyp, dzp);
-    const pressure = Math.min(1, Math.max(0, 1 - pinch / 0.15));
+    const pinchRaw = Math.hypot(dxp, dyp, dzp);
+    // Hand scale = wrist → middle MCP (landmark 9). This is the most stable
+    // anchor for "how big is the hand on screen". Normalising pinch by hand
+    // scale makes click detection invariant to camera distance and angle.
+    const middleMcp = lm[9];
+    const handScale = Math.max(
+      0.06,
+      Math.hypot(middleMcp.x - wrist.x, middleMcp.y - wrist.y, middleMcp.z - wrist.z),
+    );
+    // pinch is now expressed as a ratio of hand size — robust at any distance.
+    const pinch = pinchRaw / handScale;
+    const pressure = Math.min(1, Math.max(0, 1 - pinch / 0.55));
 
     // ---- Finger state detection (extended/folded) ----
     // Index/middle/ring/pinky: tip above PIP (lower y) means extended.
