@@ -167,6 +167,7 @@ export class BrowserCursor {
     if (!this.root.isConnected) document.body.appendChild(this.root);
     this.resizeCanvas();
     window.addEventListener("resize", this.resizeCanvas);
+    window.addEventListener("keydown", this.handleTextKey, true);
     this.unsub = TelemetryStore.subscribe(() => {/* no-op, polled in raf */});
     this.loop();
   }
@@ -174,6 +175,7 @@ export class BrowserCursor {
   detach() {
     cancelAnimationFrame(this.rafId);
     window.removeEventListener("resize", this.resizeCanvas);
+    window.removeEventListener("keydown", this.handleTextKey, true);
     this.unsub?.();
     this.unsub = null;
     if (this.isDown) {
@@ -183,6 +185,41 @@ export class BrowserCursor {
     this.lastTarget = null;
     if (this.root.isConnected) this.root.remove();
   }
+
+  /** Capture-phase key handler that types into the active text caret. */
+  private handleTextKey = (e: KeyboardEvent) => {
+    if (this.mode !== "draw") return;
+    const { tool, textAnchor, textBuffer } = PaintStore.get();
+    if (tool !== "text" || !textAnchor) return;
+    // Don't hijack typing when an actual input/textarea is focused.
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      PaintStore.set({ textBuffer: "", textAnchor: null });
+      return;
+    }
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      this.commitText();
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      PaintStore.set({ textBuffer: textBuffer + "\n" });
+      return;
+    }
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      PaintStore.set({ textBuffer: textBuffer.slice(0, -1) });
+      return;
+    }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      PaintStore.set({ textBuffer: textBuffer + e.key });
+    }
+  };
 
   setMode(mode: CursorMode) {
     this.mode = mode;
