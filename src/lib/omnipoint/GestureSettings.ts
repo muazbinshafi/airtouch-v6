@@ -59,6 +59,21 @@ export interface GestureSettings {
   minConfidence: number;
   /** Global multiplier on holdMs — pull down for snappier, up for stricter */
   accuracyBias: number;
+  /**
+   * Optional per-profile calibration. When present, activating this profile
+   * also pushes these values into the GestureEngine config (sensitivity,
+   * smoothing, click thresholds, scroll, aspect, deadZone) so each user can
+   * keep distinct calibrations across their devices.
+   */
+  engineConfig?: {
+    sensitivity: number;
+    smoothingAlpha: number;
+    clickThreshold: number;
+    releaseThreshold: number;
+    scrollSensitivity: number;
+    aspectRatio: number;
+    deadZone: number;
+  };
 }
 
 export const ACTION_LABELS: Record<GestureAction, string> = {

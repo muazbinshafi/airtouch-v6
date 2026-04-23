@@ -4,7 +4,14 @@
 export type PenTool = "pen" | "marker" | "highlighter" | "eraser";
 export type ShapeTool = "line" | "rect" | "ellipse" | "arrow";
 export type FillTool = "fill";
-export type Tool = PenTool | ShapeTool | FillTool;
+export type SpecialTool =
+  | "picker"     // click samples color under cursor → sets paint color
+  | "spray"     // airbrush spatter
+  | "text"      // click places text caret + types
+  | "select"    // marquee select region (drag = define rect, hold to move)
+  | "polygon"   // multi-click polygon, double-pinch closes
+  | "curve";    // 3-point quadratic bezier
+export type Tool = PenTool | ShapeTool | FillTool | SpecialTool;
 
 export interface Stroke {
   // Serialized stroke for undo/redo. We keep things simple: each stroke is a
@@ -26,6 +33,12 @@ export interface PaintSnapshot {
   // them so consumers can override per-stroke if they ever want to).
   alpha: number;
   composite: GlobalCompositeOperation;
+  /** Active text being typed when tool === "text". Cleared when committed. */
+  textBuffer: string;
+  /** Where the text caret was placed (canvas pixels). */
+  textAnchor: { x: number; y: number } | null;
+  /** Font size for the text tool (px). */
+  fontSize: number;
 }
 
 const initial: PaintSnapshot = {
@@ -34,6 +47,9 @@ const initial: PaintSnapshot = {
   size: 4,
   alpha: 1,
   composite: "source-over",
+  textBuffer: "",
+  textAnchor: null,
+  fontSize: 28,
 };
 
 let snapshot: PaintSnapshot = { ...initial };
@@ -79,6 +95,12 @@ export const PaintStore = {
   },
   isFill(tool: Tool = snapshot.tool): tool is FillTool {
     return tool === "fill";
+  },
+  isSpecial(tool: Tool = snapshot.tool): tool is SpecialTool {
+    return (
+      tool === "picker" || tool === "spray" || tool === "text" ||
+      tool === "select" || tool === "polygon" || tool === "curve"
+    );
   },
 };
 

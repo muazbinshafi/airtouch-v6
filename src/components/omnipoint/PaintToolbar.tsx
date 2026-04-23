@@ -38,6 +38,15 @@ const FILL_TOOLS: { id: "fill"; label: string; icon: string }[] = [
   { id: "fill", label: "Fill bucket", icon: "🪣" },
 ];
 
+const SPECIAL_TOOLS: { id: "picker" | "spray" | "text" | "select" | "polygon" | "curve"; label: string; icon: string }[] = [
+  { id: "picker",  label: "Color picker (eyedropper)", icon: "💧" },
+  { id: "spray",   label: "Spray / airbrush",          icon: "✺" },
+  { id: "text",    label: "Text (type on keyboard)",   icon: "T" },
+  { id: "select",  label: "Select & move",             icon: "▢" },
+  { id: "polygon", label: "Polygon (double-pinch closes)", icon: "◇" },
+  { id: "curve",   label: "Curve (3-point bezier)",    icon: "ᔕ" },
+];
+
 export function PaintToolbar({ onClear, onUndo, onRedo, onSave }: Props) {
   const paint = usePaint();
   const history = usePaintHistory();
@@ -70,6 +79,16 @@ export function PaintToolbar({ onClear, onUndo, onRedo, onSave }: Props) {
 
       <Group label="FILL">
         {FILL_TOOLS.map((t) => (
+          <ToolBtn key={t.id} active={paint.tool === t.id} onClick={() => setTool(t.id)} title={t.label}>
+            <span className="text-base leading-none">{t.icon}</span>
+          </ToolBtn>
+        ))}
+      </Group>
+
+      <Divider />
+
+      <Group label="TOOLS">
+        {SPECIAL_TOOLS.map((t) => (
           <ToolBtn key={t.id} active={paint.tool === t.id} onClick={() => setTool(t.id)} title={t.label}>
             <span className="text-base leading-none">{t.icon}</span>
           </ToolBtn>

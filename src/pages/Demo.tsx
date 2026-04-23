@@ -19,6 +19,9 @@ import { CalibrationWizard } from "@/components/omnipoint/CalibrationWizard";
 import { PerformanceHUD } from "@/components/omnipoint/PerformanceHUD";
 import { GestureTour } from "@/components/omnipoint/GestureTour";
 import { HelpCircle } from "lucide-react";
+import { TelemetryQualityBadge } from "@/components/omnipoint/TelemetryQualityBadge";
+import { onEngineConfigApply } from "@/lib/omnipoint/GestureProfiles";
+import { GestureSettingsStore } from "@/lib/omnipoint/GestureSettings";
 
 const Demo = () => {
   const [initialized, setInitialized] = useState(false);
@@ -44,10 +47,44 @@ const Demo = () => {
     document.title = "Live Sensor — OmniPoint HCI";
   }, []);
 
+  // When a profile carrying an engineConfig is activated (e.g. after cloud
+  // sync hydrates on sign-in), apply that calibration to the live engine.
+  useEffect(() => {
+    onEngineConfigApply((cfg) => {
+      setConfigState((prev) => {
+        const next = { ...prev, ...cfg };
+        if (engineRef.current) engineRef.current.config = next;
+        return next;
+      });
+    });
+    return () => onEngineConfigApply(null);
+  }, []);
+
+  // Hydrate from any active-profile engineConfig already loaded in localStorage.
+  useEffect(() => {
+    const cfg = GestureSettingsStore.get().engineConfig;
+    if (cfg) {
+      setConfigState((prev) => ({ ...prev, ...cfg }));
+    }
+  }, []);
+
   const setConfig = useCallback((patch: Partial<EngineConfig>) => {
     setConfigState((prev) => {
       const next = { ...prev, ...patch };
       if (engineRef.current) engineRef.current.config = next;
+      // Mirror the calibration into the gesture-settings store so it rides
+      // along when the user clicks "Save profile" and is synced to the cloud.
+      GestureSettingsStore.patch({
+        engineConfig: {
+          sensitivity: next.sensitivity,
+          smoothingAlpha: next.smoothingAlpha,
+          clickThreshold: next.clickThreshold,
+          releaseThreshold: next.releaseThreshold,
+          scrollSensitivity: next.scrollSensitivity,
+          aspectRatio: next.aspectRatio,
+          deadZone: next.deadZone,
+        },
+      });
       return next;
     });
   }, []);
@@ -229,6 +266,7 @@ const Demo = () => {
         )}
         {!showInit && (
           <div className="absolute top-2 right-2 z-50 flex items-center gap-1.5 sm:gap-2">
+            <TelemetryQualityBadge />
             {/* On mobile/tablet the telemetry side-panel becomes a slide-up sheet */}
             <Sheet>
               <SheetTrigger asChild>

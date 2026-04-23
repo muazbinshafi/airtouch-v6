@@ -8,6 +8,17 @@ import {
   type GestureSettings,
 } from "./GestureSettings";
 
+/**
+ * Optional listener invoked whenever the active profile changes and ships
+ * an `engineConfig`. Demo wires this to `engine.config = …` so each user's
+ * calibration follows them across devices.
+ */
+type EngineConfigListener = (cfg: NonNullable<GestureSettings["engineConfig"]>) => void;
+let engineCfgListener: EngineConfigListener | null = null;
+export function onEngineConfigApply(cb: EngineConfigListener | null) {
+  engineCfgListener = cb;
+}
+
 export interface GestureProfile {
   id: string;
   name: string;
@@ -162,6 +173,9 @@ export const GestureProfileStore = {
     state = { ...state, activeId: id };
     persist(state);
     GestureSettingsStore.patch(p.settings);
+    if (p.settings.engineConfig && engineCfgListener) {
+      engineCfgListener(p.settings.engineConfig);
+    }
     emit();
   },
   /** Replace the entire snapshot (used by cloud sync). */
@@ -169,7 +183,12 @@ export const GestureProfileStore = {
     state = { profiles: next.profiles, activeId: next.activeId };
     persist(state);
     const active = state.profiles.find((p) => p.id === state.activeId);
-    if (active) GestureSettingsStore.patch(active.settings);
+    if (active) {
+      GestureSettingsStore.patch(active.settings);
+      if (active.settings.engineConfig && engineCfgListener) {
+        engineCfgListener(active.settings.engineConfig);
+      }
+    }
     emit();
   },
   /** Snapshot the live settings into a new named profile. */
