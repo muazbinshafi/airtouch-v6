@@ -478,7 +478,12 @@ export class BrowserCursor {
     this.setRingState(g);
 
     if (this.mode === "draw") {
-      const isDrawing = g === "click" || g === "drag" || snap.pinchDistance < 0.05;
+      // Drawing engages on click, drag, or any sustained pinch under the
+      // ratio threshold. pinchDistance is normalised by hand size so this
+      // works at any distance from the camera.
+      const isDrawing =
+        g === "click" || g === "drag" ||
+        (snap.pinchDistance > 0 && snap.pinchDistance < 0.55);
       const tool = PaintStore.get().tool;
       const isShape = PaintStore.isShape(tool);
 
