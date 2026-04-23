@@ -25,8 +25,8 @@ export interface EngineConfig {
 export const defaultConfig: EngineConfig = {
   sensitivity: 1.4,
   smoothingAlpha: 1.2,        // One-Euro minCutoff. ~1.2 = balanced smooth+snappy.
-  clickThreshold: 0.032,
-  releaseThreshold: 0.05,     // wider hysteresis → fewer click flickers
+  clickThreshold: 0.045,      // raised + scaled by hand size at runtime
+  releaseThreshold: 0.075,    // wider hysteresis → fewer click flickers
   scrollSensitivity: 14,
   aspectRatio: 16 / 9,
   deadZone: 0.0006,
