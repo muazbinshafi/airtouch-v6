@@ -1,37 +1,36 @@
 // PaintStore — reactive shared state for the MS Paint–style toolbox.
 // BrowserCursor reads from this on every frame; the toolbar UI mutates it.
-//
-// User-facing prefs (color, size, fontSize, sprayDensity, last tool) are
-// auto-persisted to localStorage and re-hydrated on load. The per-stroke
-// `tool history` is kept in memory for the active session and exported
-// alongside the PNG/PDF when the user shares their canvas.
 
 export type PenTool = "pen" | "marker" | "highlighter" | "eraser";
 export type ShapeTool = "line" | "rect" | "ellipse" | "arrow";
 export type FillTool = "fill";
 export type SpecialTool =
-  | "picker"
-  | "spray"
-  | "text"
-  | "select"
-  | "polygon"
-  | "curve";
+  | "picker"     // click samples color under cursor → sets paint color
+  | "spray"     // airbrush spatter
+  | "text"      // click places text caret + types
+  | "select"    // marquee select region (drag = define rect, hold to move)
+  | "polygon"   // multi-click polygon, double-pinch closes
+  | "curve";    // 3-point quadratic bezier
 export type Tool = PenTool | ShapeTool | FillTool | SpecialTool;
 
 export interface Stroke {
+  // Serialized stroke for undo/redo. We keep things simple: each stroke is a
+  // list of points (for freehand) OR a 2-point shape descriptor.
   kind: "free" | ShapeTool;
   tool: PenTool;
   color: string;
   size: number;
   alpha: number;
   composite: GlobalCompositeOperation;
-  points: { x: number; y: number }[];
+  points: { x: number; y: number }[]; // for "free" → all pts; shapes → [start, end]
 }
 
 export interface PaintSnapshot {
   tool: Tool;
   color: string;
   size: number;
+  // Computed render hints (UI sets these via tool presets, but we expose
+  // them so consumers can override per-stroke if they ever want to).
   alpha: number;
   composite: GlobalCompositeOperation;
   /** Active text being typed when tool === "text". Cleared when committed. */
@@ -40,17 +39,6 @@ export interface PaintSnapshot {
   textAnchor: { x: number; y: number } | null;
   /** Font size for the text tool (px). */
   fontSize: number;
-  /** Spray density (drops per spatter, 4–40). */
-  sprayDensity: number;
-}
-
-export interface ToolHistoryEntry {
-  ts: number;
-  /** "tool" = user picked a tool, "action" = stroke/fill/text committed, etc. */
-  kind: "tool" | "action";
-  tool: Tool;
-  /** Optional human-readable detail (e.g. "fill #22d3a5", "stroke 4px"). */
-  detail?: string;
 }
 
 const initial: PaintSnapshot = {
@@ -62,53 +50,9 @@ const initial: PaintSnapshot = {
   textBuffer: "",
   textAnchor: null,
   fontSize: 28,
-  sprayDensity: 12,
 };
 
-// Persistence ---------------------------------------------------------------
-// We persist only the user-tweakable fields. Transient state (textBuffer,
-// textAnchor, alpha, composite) is intentionally excluded.
-const PERSIST_KEY = "omnipoint.paintPrefs.v1";
-type PersistShape = Pick<
-  PaintSnapshot,
-  "tool" | "color" | "size" | "fontSize" | "sprayDensity"
->;
-
-function loadPrefs(): Partial<PersistShape> {
-  if (typeof localStorage === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(PERSIST_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw) as Partial<PersistShape>;
-  } catch {
-    return {};
-  }
-}
-
-function savePrefs(s: PaintSnapshot) {
-  if (typeof localStorage === "undefined") return;
-  try {
-    const p: PersistShape = {
-      tool: s.tool,
-      color: s.color,
-      size: s.size,
-      fontSize: s.fontSize,
-      sprayDensity: s.sprayDensity,
-    };
-    localStorage.setItem(PERSIST_KEY, JSON.stringify(p));
-  } catch {
-    /* quota — ignore */
-  }
-}
-
-let snapshot: PaintSnapshot = { ...initial, ...loadPrefs() };
-// Re-derive render hints for the hydrated tool so highlighter/eraser load right.
-{
-  const hints = deriveRenderHints(snapshot.tool);
-  snapshot.alpha = hints.alpha;
-  snapshot.composite = hints.composite;
-}
-
+let snapshot: PaintSnapshot = { ...initial };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -144,18 +88,6 @@ export const PaintStore = {
       next.composite = hints.composite;
     }
     snapshot = next;
-    if (
-      patch.tool !== undefined ||
-      patch.color !== undefined ||
-      patch.size !== undefined ||
-      patch.fontSize !== undefined ||
-      patch.sprayDensity !== undefined
-    ) {
-      savePrefs(snapshot);
-    }
-    if (patch.tool !== undefined) {
-      ToolHistory.record({ kind: "tool", tool: patch.tool });
-    }
     emit();
   },
   isShape(tool: Tool = snapshot.tool): tool is ShapeTool {
@@ -190,7 +122,7 @@ export const PaintHistory = {
     if (!top) return null;
     redoStack.push(top);
     emitHistory();
-    return undoStack[undoStack.length - 1] ?? null;
+    return undoStack[undoStack.length - 1] ?? null; // restore previous state
   },
   redo(): ImageData | null {
     const top = redoStack.pop();
@@ -220,22 +152,3 @@ export function subscribeHistory(cb: () => void) {
   historyListeners.add(cb);
   return () => historyListeners.delete(cb);
 }
-
-// Tool history --------------------------------------------------------------
-// Lightweight running log of every tool switch and committed action this
-// session. Surfaced in PNG sidecar / PDF metadata when the user exports.
-const MAX_TOOL_HISTORY = 200;
-const toolHistory: ToolHistoryEntry[] = [];
-
-export const ToolHistory = {
-  record(entry: Omit<ToolHistoryEntry, "ts">) {
-    toolHistory.push({ ...entry, ts: Date.now() });
-    if (toolHistory.length > MAX_TOOL_HISTORY) toolHistory.shift();
-  },
-  list(): ToolHistoryEntry[] {
-    return [...toolHistory];
-  },
-  clear() {
-    toolHistory.length = 0;
-  },
-};
