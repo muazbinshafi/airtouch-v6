@@ -205,7 +205,7 @@ export function GestureSettingsPanel() {
               <SectionTitle>OPEN PALM SCOPE</SectionTitle>
               <p className="font-mono text-[10px] text-muted-foreground mb-3 leading-relaxed">
                 Choose where the open palm gesture is active. In draw mode it
-                triggers UNDO; in pointer mode it triggers BROWSER BACK.
+                triggers UNDO; in pointer mode the default action is now safe and does nothing unless you remap it.
               </p>
               <div className="grid grid-cols-3 gap-1">
                 {(["draw_only", "pointer_only", "both"] as PalmScope[]).map((scope) => {

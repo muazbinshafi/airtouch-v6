@@ -54,17 +54,10 @@ const Demo = () => {
 
   const initialize = useCallback(async () => {
     setError(null);
+    TelemetryStore.set({ emergencyStop: false, sensorLost: false });
     setInitializing(true);
-    setProgress(5);
     setStatus("Requesting camera access...");
     try {
-      if (typeof window !== "undefined" && window.top !== window.self) {
-        throw new Error(
-          "Camera blocked: this page is running inside an iframe (Lovable preview). " +
-          "Click the ↗ button in the top-right of the preview to open it in a new tab, " +
-          "then press INITIALIZE again.",
-        );
-      }
       if (typeof window !== "undefined" && !window.isSecureContext) {
         throw new Error(
           "Camera blocked: getUserMedia requires a secure context. " +
