@@ -76,7 +76,7 @@ const STEPS: Step[] = [
       (s.gesture === "click" ||
         s.gesture === "drag" ||
         s.gesture === "right_click" ||
-        (s.pinchDistance > 0 && s.pinchDistance < 0.06)),
+        (s.pinchDistance > 0 && s.pinchDistance < 0.55)),
     dwellMs: 100,
   },
   {
@@ -88,7 +88,7 @@ const STEPS: Step[] = [
     Icon: Grab,
     practicePrompt: "Pinch and hold your thumb and index finger together.",
     match: (s) =>
-      s.handPresent && (s.gesture === "drag" || (s.pinchDistance > 0 && s.pinchDistance < 0.04)),
+      s.handPresent && (s.gesture === "drag" || (s.pinchDistance > 0 && s.pinchDistance < 0.45)),
     dwellMs: 220,
   },
   {
@@ -105,7 +105,7 @@ const STEPS: Step[] = [
         (s.fingersExtended[1] === true &&
           s.fingersExtended[2] === true &&
           s.pinchDistance > 0 &&
-          s.pinchDistance < 0.06)),
+          s.pinchDistance < 0.6)),
     dwellMs: 220,
   },
   {
