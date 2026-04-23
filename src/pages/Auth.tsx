@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Hand, Loader2, ArrowRight, Mail, Lock, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -61,11 +62,18 @@ const Auth = () => {
     if (busy) return;
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/demo` },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/demo`,
       });
-      if (error) throw error;
+      if (result.error) {
+        const msg = result.error instanceof Error ? result.error.message : "Google sign-in failed";
+        toast({ title: "Sign-in error", description: msg, variant: "destructive" });
+        setBusy(false);
+        return;
+      }
+      if (result.redirected) return; // browser is navigating to Google
+      // Token flow completed — AuthContext will pick up the new session.
+      navigate("/demo", { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Google sign-in failed";
       toast({ title: "Sign-in error", description: msg, variant: "destructive" });
