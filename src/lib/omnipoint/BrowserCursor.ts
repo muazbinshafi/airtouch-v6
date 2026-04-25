@@ -172,6 +172,11 @@ export class BrowserCursor {
     window.addEventListener("resize", this.resizeCanvas);
     window.addEventListener("keydown", this.handleTextKey, true);
     this.unsub = TelemetryStore.subscribe(() => {/* no-op, polled in raf */});
+    // eslint-disable-next-line no-console
+    console.log("[OmniPoint] BrowserCursor attached", {
+      canvas: { w: this.drawCanvas.width, h: this.drawCanvas.height },
+      hasCtx: !!this.drawCtx,
+    });
     this.loop();
   }
 
