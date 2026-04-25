@@ -738,14 +738,14 @@ export class BrowserCursor {
 
       if (isFill) {
         // Trigger flood-fill once on the rising edge of pinch / click.
-        const wasDrawing = this.lastGesture === "click" || this.lastGesture === "drag";
-        if (isDrawing && !wasDrawing) {
+        if (isDrawing && !this.wasDrawingFrame) {
           const snapImg = this.snapshotCanvas();
           if (snapImg) PaintHistory.push(snapImg);
           this.floodFill(x, y);
         }
         this.setLabel(isDrawing ? "FILL" : "FILL · CLICK TO POUR");
         this.tryFireStaticGesture(g, snap.confidence, "draw");
+        this.wasDrawingFrame = isDrawing;
         this.lastGesture = g;
         return;
       }
