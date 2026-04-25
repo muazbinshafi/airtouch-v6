@@ -232,6 +232,15 @@ export class BrowserCursor {
   setMode(mode: CursorMode) {
     this.mode = mode;
     this.root.style.display = mode === "off" ? "none" : "block";
+    // Visually mark the draw canvas so the user can see it's active.
+    if (mode === "draw") {
+      this.drawCanvas.style.outline = "2px dashed hsl(var(--primary) / 0.6)";
+      this.drawCanvas.style.outlineOffset = "-4px";
+      this.drawCanvas.style.background = "hsl(var(--primary) / 0.02)";
+    } else {
+      this.drawCanvas.style.outline = "none";
+      this.drawCanvas.style.background = "transparent";
+    }
     if (mode !== "draw") {
       this.lastDrawPt = null;
       this.wasDrawingFrame = false;
@@ -244,6 +253,8 @@ export class BrowserCursor {
       this.dispatchUp(this.lastTarget);
       this.isDown = false;
     }
+    // eslint-disable-next-line no-console
+    console.log("[OmniPoint] cursor mode →", mode);
   }
 
   clearDrawing() {
