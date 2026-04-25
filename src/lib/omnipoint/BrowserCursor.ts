@@ -51,6 +51,9 @@ export class BrowserCursor {
   private lastZoomAt = 0;
   private lastNextAt = 0;
   private lastDrawPt: DrawSegment | null = null;
+  // Tracks previous frame's draw-engagement state so rising/falling edge
+  // detection works whether the user clicks or holds a sustained pinch.
+  private wasDrawingFrame = false;
   // Shape preview state — when drawing a shape we hold the start anchor
   // and a snapshot of the canvas to redraw the rubber-band on each frame.
   private shapeStart: DrawSegment | null = null;
