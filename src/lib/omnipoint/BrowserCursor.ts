@@ -51,6 +51,9 @@ export class BrowserCursor {
   private lastZoomAt = 0;
   private lastNextAt = 0;
   private lastDrawPt: DrawSegment | null = null;
+  // Tracks previous frame's draw-engagement state so rising/falling edge
+  // detection works whether the user clicks or holds a sustained pinch.
+  private wasDrawingFrame = false;
   // Shape preview state — when drawing a shape we hold the start anchor
   // and a snapshot of the canvas to redraw the rubber-band on each frame.
   private shapeStart: DrawSegment | null = null;
@@ -224,7 +227,14 @@ export class BrowserCursor {
   setMode(mode: CursorMode) {
     this.mode = mode;
     this.root.style.display = mode === "off" ? "none" : "block";
-    if (mode !== "draw") this.lastDrawPt = null;
+    if (mode !== "draw") {
+      this.lastDrawPt = null;
+      this.wasDrawingFrame = false;
+      this.shapeStart = null;
+      this.shapeBase = null;
+      this.polyPts = [];
+      this.polyBase = null;
+    }
     if (mode === "off" && this.isDown) {
       this.dispatchUp(this.lastTarget);
       this.isDown = false;
@@ -735,23 +745,21 @@ export class BrowserCursor {
 
       if (isFill) {
         // Trigger flood-fill once on the rising edge of pinch / click.
-        const wasDrawing = this.lastGesture === "click" || this.lastGesture === "drag";
-        if (isDrawing && !wasDrawing) {
+        if (isDrawing && !this.wasDrawingFrame) {
           const snapImg = this.snapshotCanvas();
           if (snapImg) PaintHistory.push(snapImg);
           this.floodFill(x, y);
         }
         this.setLabel(isDrawing ? "FILL" : "FILL · CLICK TO POUR");
         this.tryFireStaticGesture(g, snap.confidence, "draw");
+        this.wasDrawingFrame = isDrawing;
         this.lastGesture = g;
         return;
       }
 
       if (isSpecial) {
-        const wasDrawing =
-          this.lastGesture === "click" || this.lastGesture === "drag";
-        const risingEdge = isDrawing && !wasDrawing;
-        const fallingEdge = !isDrawing && wasDrawing;
+        const risingEdge = isDrawing && !this.wasDrawingFrame;
+        const fallingEdge = !isDrawing && this.wasDrawingFrame;
 
         if (tool === "picker") {
           if (risingEdge) {
@@ -910,6 +918,7 @@ export class BrowserCursor {
         }
 
         this.tryFireStaticGesture(g, snap.confidence, "draw");
+        this.wasDrawingFrame = isDrawing;
         this.lastGesture = g;
         return;
       }
@@ -944,6 +953,7 @@ export class BrowserCursor {
       // Static-pose actions in DRAW mode (undo/redo/clear/save/etc) come
       // from the user's gesture bindings, gated by hold-time + cooldown.
       this.tryFireStaticGesture(g, snap.confidence, "draw");
+      this.wasDrawingFrame = isDrawing;
       this.lastGesture = g;
       return;
     }
