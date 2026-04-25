@@ -172,6 +172,11 @@ export class BrowserCursor {
     window.addEventListener("resize", this.resizeCanvas);
     window.addEventListener("keydown", this.handleTextKey, true);
     this.unsub = TelemetryStore.subscribe(() => {/* no-op, polled in raf */});
+    // eslint-disable-next-line no-console
+    console.log("[OmniPoint] BrowserCursor attached", {
+      canvas: { w: this.drawCanvas.width, h: this.drawCanvas.height },
+      hasCtx: !!this.drawCtx,
+    });
     this.loop();
   }
 
@@ -227,6 +232,15 @@ export class BrowserCursor {
   setMode(mode: CursorMode) {
     this.mode = mode;
     this.root.style.display = mode === "off" ? "none" : "block";
+    // Visually mark the draw canvas so the user can see it's active.
+    if (mode === "draw") {
+      this.drawCanvas.style.outline = "2px dashed hsl(var(--primary) / 0.6)";
+      this.drawCanvas.style.outlineOffset = "-4px";
+      this.drawCanvas.style.background = "hsl(var(--primary) / 0.02)";
+    } else {
+      this.drawCanvas.style.outline = "none";
+      this.drawCanvas.style.background = "transparent";
+    }
     if (mode !== "draw") {
       this.lastDrawPt = null;
       this.wasDrawingFrame = false;
@@ -239,6 +253,8 @@ export class BrowserCursor {
       this.dispatchUp(this.lastTarget);
       this.isDown = false;
     }
+    // eslint-disable-next-line no-console
+    console.log("[OmniPoint] cursor mode →", mode);
   }
 
   clearDrawing() {
@@ -734,14 +750,20 @@ export class BrowserCursor {
     if (this.mode === "draw") {
       // Drawing engages on click, drag, or any sustained pinch under the
       // ratio threshold. pinchDistance is normalised by hand size so this
-      // works at any distance from the camera.
+      // works at any distance from the camera. We use a generous threshold
+      // (0.7) so it's forgiving for users with smaller pinches.
       const isDrawing =
         g === "click" || g === "drag" ||
-        (snap.pinchDistance > 0 && snap.pinchDistance < 0.55);
+        (snap.pinchDistance > 0 && snap.pinchDistance < 0.7);
       const tool = PaintStore.get().tool;
       const isShape = PaintStore.isShape(tool);
       const isFill = PaintStore.isFill(tool);
       const isSpecial = PaintStore.isSpecial(tool);
+
+      if (isDrawing && !this.wasDrawingFrame) {
+        // eslint-disable-next-line no-console
+        console.log("[OmniPoint] draw engaged", { gesture: g, pinch: snap.pinchDistance.toFixed(3), tool, x: x.toFixed(1), y: y.toFixed(1) });
+      }
 
       if (isFill) {
         // Trigger flood-fill once on the rising edge of pinch / click.
