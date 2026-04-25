@@ -946,6 +946,7 @@ export class BrowserCursor {
       // Static-pose actions in DRAW mode (undo/redo/clear/save/etc) come
       // from the user's gesture bindings, gated by hold-time + cooldown.
       this.tryFireStaticGesture(g, snap.confidence, "draw");
+      this.wasDrawingFrame = isDrawing;
       this.lastGesture = g;
       return;
     }
