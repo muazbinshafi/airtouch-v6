@@ -911,6 +911,7 @@ export class BrowserCursor {
         }
 
         this.tryFireStaticGesture(g, snap.confidence, "draw");
+        this.wasDrawingFrame = isDrawing;
         this.lastGesture = g;
         return;
       }
