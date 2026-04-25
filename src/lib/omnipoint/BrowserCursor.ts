@@ -751,10 +751,8 @@ export class BrowserCursor {
       }
 
       if (isSpecial) {
-        const wasDrawing =
-          this.lastGesture === "click" || this.lastGesture === "drag";
-        const risingEdge = isDrawing && !wasDrawing;
-        const fallingEdge = !isDrawing && wasDrawing;
+        const risingEdge = isDrawing && !this.wasDrawingFrame;
+        const fallingEdge = !isDrawing && this.wasDrawingFrame;
 
         if (tool === "picker") {
           if (risingEdge) {
