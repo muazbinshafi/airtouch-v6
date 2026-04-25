@@ -227,7 +227,14 @@ export class BrowserCursor {
   setMode(mode: CursorMode) {
     this.mode = mode;
     this.root.style.display = mode === "off" ? "none" : "block";
-    if (mode !== "draw") this.lastDrawPt = null;
+    if (mode !== "draw") {
+      this.lastDrawPt = null;
+      this.wasDrawingFrame = false;
+      this.shapeStart = null;
+      this.shapeBase = null;
+      this.polyPts = [];
+      this.polyBase = null;
+    }
     if (mode === "off" && this.isDown) {
       this.dispatchUp(this.lastTarget);
       this.isDown = false;
